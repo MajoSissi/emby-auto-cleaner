@@ -1,0 +1,22 @@
+name: Clean Old Workflows
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  clean:
+    name: Clean old workflow runs
+    runs-on: ubuntu-latest
+    if: github.repository == github.event.repository.full_name
+    
+    steps:
+      - name: Clean old workflow runs
+        uses: Mattraks/delete-workflow-runs@v2
+        with:
+          token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          workflow: build.yml
+          keep_minimum_runs: 5
