@@ -34,7 +34,7 @@ jobs:
 
       - name: Build
         run: |
-          go build -o build/${{ matrix.output }} -ldflags="-s -w" .
+          go build -o ${{ matrix.output }} -ldflags="-s -w" .
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
@@ -45,6 +45,6 @@ jobs:
         with:
           name: ${{ matrix.goos }}-amd64
           path: |
-            build/${{ matrix.output }}
+            ${{ matrix.output }}
             emby-auto-cleaner.yaml
           retention-days: 30

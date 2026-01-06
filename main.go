@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -142,6 +141,7 @@ func (c *EmbyClient) GetItems(userID, itemType string, filters map[string]string
 	params := url.Values{}
 	params.Add("Recursive", "true")
 	params.Add("IncludeItemTypes", itemType)
+	params.Add("Fields", "Path,MediaSources")
 
 	for k, v := range filters {
 		params.Add(k, v)
@@ -173,6 +173,30 @@ func (c *EmbyClient) GetItems(userID, itemType string, filters map[string]string
 	}
 
 	return result.Items, nil
+}
+
+func (c *EmbyClient) DeleteItem(itemID string) error {
+	apiURL := fmt.Sprintf("%s/emby/Items/%s", c.baseURL, itemID)
+
+	req, err := http.NewRequest("DELETE", apiURL, nil)
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("X-Emby-Token", c.authToken)
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("删除失败: %s, body: %s", resp.Status, string(body))
+	}
+
+	return nil
 }
 
 func (c *EmbyClient) GetLibraries() (map[string]string, error) {
@@ -256,13 +280,20 @@ func shouldDelete(item EmbyItem, config *Config, watchedCutoff time.Time) bool {
 		return false
 	}
 
-	if item.UserData.LastPlayedDate == "" {
-		return false
-	}
+	var lastPlayed time.Time
+	var err error
 
-	lastPlayed, err := time.Parse(time.RFC3339, item.UserData.LastPlayedDate)
-	if err != nil {
-		return false
+	if item.UserData.LastPlayedDate == "" {
+		fmt.Printf("警告: %s (S%02dE%02d) 已观看但无播放时间，假设很久以前观看\n",
+			item.SeriesName, item.ParentIndexNumber, item.IndexNumber)
+		lastPlayed = time.Now().AddDate(-100, 0, 0)
+	} else {
+		lastPlayed, err = time.Parse(time.RFC3339, item.UserData.LastPlayedDate)
+		if err != nil {
+			fmt.Printf("警告: %s (S%02dE%02d) 播放时间格式错误: %v\n",
+				item.SeriesName, item.ParentIndexNumber, item.IndexNumber, err)
+			return false
+		}
 	}
 
 	if lastPlayed.After(watchedCutoff) {
@@ -270,57 +301,6 @@ func shouldDelete(item EmbyItem, config *Config, watchedCutoff time.Time) bool {
 	}
 
 	return true
-}
-
-func removeEmptyFolders(basePath string) error {
-	var folders []string
-
-	err := filepath.Walk(basePath, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if info.IsDir() {
-			folders = append(folders, path)
-		}
-		return nil
-	})
-
-	if err != nil {
-		return err
-	}
-
-	for i := len(folders) - 1; i >= 0; i-- {
-		folder := folders[i]
-		if folder == basePath {
-			continue
-		}
-
-		isEmpty, err := isDirEmpty(folder)
-		if err != nil {
-			continue
-		}
-
-		if isEmpty {
-			fmt.Printf("删除空文件夹: %s\n", folder)
-			os.Remove(folder)
-		}
-	}
-
-	return nil
-}
-
-func isDirEmpty(path string) (bool, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return false, err
-	}
-	defer f.Close()
-
-	_, err = f.Readdirnames(1)
-	if err == io.EOF {
-		return true, nil
-	}
-	return false, err
 }
 
 func main() {
@@ -416,16 +396,9 @@ func main() {
 	}
 
 	for _, episodes := range seriesEpisodes {
-		if len(episodes) <= config.Cleanup.KeepLatestEpisodes {
-			continue
-		}
-
 		sortEpisodesByIndexNumber(episodes)
 
-		keepCount := config.Cleanup.KeepLatestEpisodes
-		deleteCount := len(episodes) - keepCount
-
-		for i := 0; i < deleteCount; i++ {
+		for i := 0; i < len(episodes); i++ {
 			if config.Cleanup.DryRun {
 				fmt.Printf("[DRY RUN] 将删除: %s - S%02dE%02d - %s\n",
 					episodes[i].SeriesName,
@@ -439,32 +412,14 @@ func main() {
 					episodes[i].IndexNumber,
 					episodes[i].Path)
 
-				if err := os.Remove(episodes[i].Path); err != nil {
+				if err := client.DeleteItem(episodes[i].ID); err != nil {
 					fmt.Printf("删除失败: %v\n", err)
 				}
 			}
 		}
 	}
 
-	if config.Cleanup.RemoveEmptyFolders && !config.Cleanup.DryRun {
-		fmt.Println("\n清理空文件夹...")
-		for libID := range libraryIDs {
-			libPath, err := client.GetLibraryPath(libID)
-			if err != nil {
-				fmt.Printf("获取媒体库路径失败: %v\n", err)
-				continue
-			}
-			if libPath != "" {
-				removeEmptyFolders(libPath)
-			}
-		}
-	}
-
-	if config.Cleanup.DryRun {
-		fmt.Println("\n[DRY RUN] 这是模拟运行，没有实际删除文件")
-	} else {
-		fmt.Println("\n清理完成")
-	}
+	fmt.Println("\n清理完成")
 }
 
 func sortEpisodesByIndexNumber(episodes []EmbyItem) {
