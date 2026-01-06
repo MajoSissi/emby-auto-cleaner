@@ -12,8 +12,8 @@ mkdir -p build
 
 # 定义构建配置
 declare -A PLATFORMS=(
-  ["linux/amd64"]="emby-auto-cleaner"
-  ["windows/amd64"]="emby-auto-cleaner.exe"
+  ["linux/amd64"]="emby-cleaner"
+  ["windows/amd64"]="emby-cleaner.exe"
 )
 
 # 构建每个平台
@@ -41,7 +41,7 @@ done
 # 复制配置文件到build目录
 echo ""
 echo "复制配置文件..."
-cp emby-auto-cleaner.yaml build/
+cp emby-cleaner.yaml build/
 
 echo ""
 echo "=== 所有构建完成 ==="

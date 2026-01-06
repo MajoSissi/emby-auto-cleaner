@@ -94,10 +94,10 @@ func (c *EmbyClient) Authenticate(username, password string) error {
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Emby-Client", "Emby Auto Cleaner")
+	req.Header.Set("X-Emby-Client", "Emby Cleaner")
 	req.Header.Set("X-Emby-Client-Version", "1.0")
-	req.Header.Set("X-Emby-Device-Name", "EmbyAutoCleaner")
-	req.Header.Set("X-Emby-Device-Id", "emby-auto-cleaner")
+	req.Header.Set("X-Emby-Device-Name", "EmbyCleaner")
+	req.Header.Set("X-Emby-Device-Id", "emby-cleaner")
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -304,7 +304,7 @@ func shouldDelete(item EmbyItem, config *Config, watchedCutoff time.Time) bool {
 }
 
 func main() {
-	configPath := "emby-auto-cleaner.yaml"
+	configPath := "emby-cleaner.yaml"
 	if len(os.Args) > 1 {
 		configPath = os.Args[1]
 	}

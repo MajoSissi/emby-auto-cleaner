@@ -1,4 +1,4 @@
-# Emby Auto Cleaner
+# Emby Cleaner
 
 使用Go语言实现的Emby自动清理工具，可以自动删除已观看的剧集文件。
 
@@ -18,7 +18,7 @@
 
 ```bash
 # 编辑配置文件，填写你的Emby服务器地址、用户名和密码
-vim emby-auto-cleaner.yaml  # 或使用其他编辑器
+vim emby-cleaner.yaml  # 或使用其他编辑器
 ```
 
 2. 运行程序：
@@ -39,7 +39,7 @@ go run main.go /path/to/config.yaml
 build.bat
 
 # 或手动编译
-go build -o build/emby-auto-cleaner .
+go build -o build/emby-cleaner .
 ```
 
 ## 配置说明

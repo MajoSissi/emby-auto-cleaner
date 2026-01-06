@@ -13,9 +13,9 @@ echo 构建: windows/amd64
 set GOOS=windows
 set GOARCH=amd64
 set CGO_ENABLED=0
-go build -ldflags="-s -w" -o build/emby-auto-cleaner.exe .
+go build -ldflags="-s -w" -o build/emby-cleaner.exe .
 if %ERRORLEVEL% EQU 0 (
-    echo ✓ 构建成功: emby-auto-cleaner.exe
+    echo ✓ 构建成功: emby-cleaner.exe
 ) else (
     echo ✗ 构建失败
     exit /b 1
@@ -26,9 +26,9 @@ echo.
 echo 构建: linux/amd64
 set GOOS=linux
 set GOARCH=amd64
-go build -ldflags="-s -w" -o build/emby-auto-cleaner .
+go build -ldflags="-s -w" -o build/emby-cleaner .
 if %ERRORLEVEL% EQU 0 (
-    echo ✓ 构建成功: emby-auto-cleaner
+    echo ✓ 构建成功: emby-cleaner
 ) else (
     echo ✗ 构建失败
     exit /b 1
@@ -37,7 +37,7 @@ if %ERRORLEVEL% EQU 0 (
 REM 复制配置文件到build目录
 echo.
 echo 复制配置文件...
-copy emby-auto-cleaner.yaml build\
+copy emby-cleaner.yaml build\
 
 echo.
 echo === 所有构建完成 ===

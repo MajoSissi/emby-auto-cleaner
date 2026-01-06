@@ -17,11 +17,11 @@ jobs:
           - os: ubuntu-latest
             goos: linux
             goarch: amd64
-            output: emby-auto-cleaner
+            output: emby-cleaner
           - os: windows-latest
             goos: windows
             goarch: amd64
-            output: emby-auto-cleaner.exe
+            output: emby-cleaner.exe
 
     steps:
       - name: Checkout code
@@ -41,7 +41,7 @@ jobs:
           CGO_ENABLED: 0
 
       - name: Prepare config file
-        run: cp emby-auto-cleaner.yaml.example emby-auto-cleaner.yaml
+        run: cp emby-cleaner.example.yaml emby-cleaner.yaml
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -49,5 +49,5 @@ jobs:
           name: ${{ matrix.goos }}-amd64
           path: |
             ${{ matrix.output }}
-            emby-auto-cleaner.yaml
+            emby-cleaner.yaml
           retention-days: 30

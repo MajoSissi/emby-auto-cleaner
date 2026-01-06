@@ -1,4 +1,4 @@
-module emby-auto-cleaner
+module emby-cleaner
 
 go 1.21
 
