@@ -254,7 +254,7 @@ func loadConfig(configPath string) (*Config, error) {
 	return &config, nil
 }
 
-func shouldDelete(item EmbyItem, config *Config, watchedCutoff time.Time) bool {
+func shouldDelete(item EmbyItem, config *Config) bool {
 	if item.UserData.IsFavorite && config.Cleanup.ProtectFavorites {
 		return false
 	}
@@ -278,26 +278,6 @@ func shouldDelete(item EmbyItem, config *Config, watchedCutoff time.Time) bool {
 	}
 
 	if !item.UserData.Played {
-		return false
-	}
-
-	var lastPlayed time.Time
-	var err error
-
-	if item.UserData.LastPlayedDate == "" {
-		fmt.Printf("警告: %s (S%02dE%02d) 已观看但无播放时间，假设很久以前观看\n",
-			item.SeriesName, item.ParentIndexNumber, item.IndexNumber)
-		lastPlayed = time.Now().AddDate(-100, 0, 0)
-	} else {
-		lastPlayed, err = time.Parse(time.RFC3339, item.UserData.LastPlayedDate)
-		if err != nil {
-			fmt.Printf("警告: %s (S%02dE%02d) 播放时间格式错误: %v\n",
-				item.SeriesName, item.ParentIndexNumber, item.IndexNumber, err)
-			return false
-		}
-	}
-
-	if lastPlayed.After(watchedCutoff) {
 		return false
 	}
 
@@ -368,65 +348,56 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Printf("找到 %d 个剧集\n", len(items))
-
-	watchedCutoff := time.Now().AddDate(0, 0, -config.Cleanup.WatchedDaysAgo)
-	fmt.Printf("观看截止时间: %s (watched_days_ago=%d)\n", watchedCutoff.Format("2006-01-02 15:04:05"), config.Cleanup.WatchedDaysAgo)
-
 	var itemsToDelete []EmbyItem
 	watchedCount := 0
 	for _, item := range items {
 		if item.UserData.Played {
 			watchedCount++
 		}
-		if shouldDelete(item, config, watchedCutoff) {
+		if shouldDelete(item, config) {
 			itemsToDelete = append(itemsToDelete, item)
 		}
 	}
 
-	fmt.Printf("已观看的剧集数: %d\n", watchedCount)
-	if watchedCount > 0 {
-		for _, item := range items {
-			if item.UserData.Played {
-				fmt.Printf("  - %s (S%02dE%02d) Played: %v, LastPlayed: %s, Path: %s\n",
-					item.SeriesName, item.ParentIndexNumber, item.IndexNumber,
-					item.UserData.Played, item.UserData.LastPlayedDate, item.Path)
-			}
+	fmt.Printf("找到 %d 个剧集，已观看 %d 个剧集\n", len(items), watchedCount)
+
+	fmt.Printf("\n准备删除 %d 个剧集\n", len(itemsToDelete))
+
+	if len(itemsToDelete) > 0 {
+		seriesEpisodes := make(map[string][]EmbyItem)
+		for _, item := range itemsToDelete {
+			key := item.SeriesID
+			seriesEpisodes[key] = append(seriesEpisodes[key], item)
 		}
-	}
-	fmt.Printf("准备删除 %d 个已观看剧集\n", len(itemsToDelete))
 
-	seriesEpisodes := make(map[string][]EmbyItem)
-	for _, item := range itemsToDelete {
-		key := item.SeriesID
-		seriesEpisodes[key] = append(seriesEpisodes[key], item)
-	}
+		for _, episodes := range seriesEpisodes {
+			sortEpisodesByIndexNumber(episodes)
 
-	for _, episodes := range seriesEpisodes {
-		sortEpisodesByIndexNumber(episodes)
+			for i := 0; i < len(episodes); i++ {
+				if config.Cleanup.DryRun {
+					fmt.Printf("  %s S%02dE%02d\n",
+						episodes[i].SeriesName,
+						episodes[i].ParentIndexNumber,
+						episodes[i].IndexNumber)
+				} else {
+					fmt.Printf("  删除: %s S%02dE%02d\n",
+						episodes[i].SeriesName,
+						episodes[i].ParentIndexNumber,
+						episodes[i].IndexNumber)
 
-		for i := 0; i < len(episodes); i++ {
-			if config.Cleanup.DryRun {
-				fmt.Printf("[DRY RUN] 将删除: %s - S%02dE%02d - %s\n",
-					episodes[i].SeriesName,
-					episodes[i].ParentIndexNumber,
-					episodes[i].IndexNumber,
-					episodes[i].Path)
-			} else {
-				fmt.Printf("删除: %s - S%02dE%02d - %s\n",
-					episodes[i].SeriesName,
-					episodes[i].ParentIndexNumber,
-					episodes[i].IndexNumber,
-					episodes[i].Path)
-
-				if err := client.DeleteItem(episodes[i].ID); err != nil {
-					fmt.Printf("删除失败: %v\n", err)
+					if err := client.DeleteItem(episodes[i].ID); err != nil {
+						fmt.Printf("    删除失败: %v\n", err)
+					}
 				}
 			}
 		}
 	}
 
-	fmt.Println("\n清理完成")
+	if config.Cleanup.DryRun {
+		fmt.Println("\n[DRY RUN] 模拟运行模式，未实际删除文件")
+	} else {
+		fmt.Println("\n清理完成")
+	}
 }
 
 func sortEpisodesByIndexNumber(episodes []EmbyItem) {
