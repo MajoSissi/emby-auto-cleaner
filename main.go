@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -307,6 +308,12 @@ func main() {
 	configPath := "emby-cleaner.yaml"
 	if len(os.Args) > 1 {
 		configPath = os.Args[1]
+	} else {
+		execPath, err := os.Executable()
+		if err == nil {
+			execDir := filepath.Dir(execPath)
+			configPath = filepath.Join(execDir, configPath)
+		}
 	}
 
 	config, err := loadConfig(configPath)
